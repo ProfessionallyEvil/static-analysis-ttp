@@ -30,7 +30,7 @@
    ```
    - (use this for more info: [https://www.vagrantup.com/docs/synced-folders/basic_usage.html](https://www.vagrantup.com/docs/synced-folders/basic_usage.html))
 
-4) inside [this](/static-analysis/) directory type the command `vagrant up`
+4) Inside this directory type the command `vagrant up`
 5) you will (most likely) get a pop up that asks for virtualbox to create an adapter, you have to select yes for this to work. (It is creating a host only adapter so you can access applications directly on the vm instead of port forwarding all the necssary ports.)
 6) specify which tool(s)/client(s) you want to use with `vagrant provision --provision-with <tool_name|client_name>`, and you can specify multiple provisioniners (i.e. `vagrant provision --provision-with <client_name>,<tool_name>,<other_tool_name>`). (More info here: [https://www.vagrantup.com/docs/cli/provision.html#provision-with-x-y-z](https://www.vagrantup.com/docs/cli/provision.html#provision-with-x-y-z))
 7) After you run the provisions you want, then you can do `vagrant ssh` to access everything. All the ip addresses you will probably access are 192.168.33.xx (probably .10). Then the port number for the service
