@@ -1,0 +1,67 @@
+---
+- hosts: all
+  become: true
+  vars:
+    bandit_opt_path: '/opt/bandit'
+    bandit2_path: "{{ bandit_opt_path }}/python2_venv"
+    bandit3_path: "{{ bandit_opt_path }}/python3_venv"
+    venv_start: '/bin/activate'
+  tasks:
+    - name: bandit install prep
+      block:
+
+        - name: python2 and 3 deps
+          apt:
+            state: present
+            name:
+              - python-pip
+              - python3-pip
+              - python-virtualenv
+              - python3-virtualenv
+
+    - name: installing bandit
+      block:
+
+        #- name: installing bandit for py2
+        #  pip:
+        #    name: bandit
+        #    virtualenv: "{{ bandit2_path }}/"
+        #    virtualenv_python: python2
+
+        - name: installing bandit for py3
+          pip:
+            name: bandit
+            virtualenv: "{{ bandit3_path }}/"
+            virtualenv_python: python3
+
+    - name: setting bandit aliases
+      vars:
+        vagrant_aliases: ~vagrant/.bash_aliases
+      block:
+
+        - name: ensure file exists
+          copy:
+            content: ""
+            dest: "{{ vagrant_aliases }}"
+            force: no
+            group: vagrant
+            owner: vagrant
+            mode: 0644
+
+        - name: setting bandit stop alias
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-bandit_stop='
+            line: 'alias si-bandit_stop="deactivate"'
+
+        - name: setting bandit start alias py2
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-bandit2_start='
+            line: "alias si-bandit2_start='source {{ bandit2_path }}{{ venv_start }}'"
+
+        - name: setting bandit start alias py3
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias bandit3_start='
+            line: "alias si-bandit3_start='source {{ bandit3_path }}{{ venv_start }}'"

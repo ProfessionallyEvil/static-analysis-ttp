@@ -1,0 +1,31 @@
+---
+- hosts: all
+  become: true
+
+  tasks:
+
+    - name: installing shellcheck
+      apt:
+        state: present
+        name:
+          - shellcheck
+
+    - name: setting sonarqube aliases
+      vars:
+        vagrant_aliases: ~vagrant/.bash_aliases
+      block:
+
+        - name: ensure file exists
+          copy:
+            content: ""
+            dest: "{{ vagrant_aliases }}"
+            force: no
+            group: vagrant
+            owner: vagrant
+            mode: 0644
+
+        - name: creating and starting sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-shellcheck='
+            line: "alias si-shellcheck='shellcheck'"

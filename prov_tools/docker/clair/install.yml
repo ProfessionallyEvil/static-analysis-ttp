@@ -1,0 +1,68 @@
+---
+- hosts: all
+  become: true
+  vars:
+    clair_opt_path: '/opt/docker/clair'
+    clair_config_path: "{{ clair_opt_path }}/clair_config"
+    quay_path: "{{ clair_opt_path }}/quay"
+  tasks:
+    - name: clair install prep
+      block:
+
+        - name: installing deps
+          apt:
+            state: present
+            name:
+              - python3-docker
+              - libarchive-tools
+
+        - name: pull clair and postgres docker images
+          docker_image:
+            source: pull
+            name: "{{ item.image }}"
+            tag: "{{ item.version }}"
+          loop:
+            - { image: 'postgres', version: '9.6' }
+            - { image: 'postgres', version: '10.12' }
+            - { image: 'redis', version: '5.0.7' }
+            - { image: 'quay.io/coreos/clair', version: 'latest' }
+            - { image: 'quay.io/projectquay/quay', version: 'latest'}
+
+        - name: create clair network
+          docker_network:
+            name: clair
+
+    - name: installing clair
+      block:
+
+        - name: creating clair and quay dirs
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+          loop:
+            - "{{ clair_opt_path }}"
+            - "{{ clair_config_path }}"
+            - "{{ quay_path }}/postgres"
+            - "{{ quay_path }}/config"
+
+        - name: checking to see if clair config has been downloaded
+          stat:
+            path: "{{ clair_config_path }}/config.yaml"
+          register: clair_config_state
+
+        - name: download clair exmaple config
+          get_url:
+            url: "{{ clair_example_config_url }}"
+            dest: "{{ clair_config_path }}/config.yaml"
+          vars:
+            - clair_example_config_url: 'https://raw.githubusercontent.com/coreos/clair/master/config.yaml.sample'
+          when: not clair_config_state.stat.exists
+
+        - name: changing clair db setting
+          lineinfile:
+            path: "{{ clair_config_path }}/config.yaml"
+            regexp: "source: "
+            line: '      source: host=clair-db port=5432 user=postgres sslmode=disable password=PASS statement_timeout=60000'

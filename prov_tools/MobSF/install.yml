@@ -1,0 +1,73 @@
+---
+- hosts: all
+  become: true
+  vars:
+    mobsf_opt_path: '/opt/MobSF'
+  tasks:
+    - name: MobSF install prep
+      block:
+
+        - name: installing deps
+          apt:
+            state: present
+            name:
+              - git
+              - python3
+              - openjdk-8-jdk
+              - python3-venv
+              - python3-pip
+              - python3-dev
+              - build-essential
+              - libffi-dev
+              - libssl-dev
+              - libxml2-dev
+              - libxslt1-dev
+              - libjpeg8-dev
+              - zlib1g-dev
+              - wkhtmltopdf
+
+    - name: MobSF install
+      block:
+
+        - name: pip installing github3 for GH release module
+          pip:
+            name: github3.py
+
+        - name: MobSF latest release
+          github_release:
+            user: MobSF
+            repo: Mobile-Security-Framework-MobSF
+            action: latest_release
+          register: release_version
+
+        - name: Cloneing latest MobSF repo
+          git:
+            repo: https://github.com/MobSF/Mobile-Security-Framework-MobSF.git
+            dest: "{{ mobsf_opt_path }}"
+            version: "{{ release_version.tag }}"
+
+        - name: Running install script
+          command: ./setup.sh
+          args:
+            chdir: "{{ mobsf_opt_path }}"
+            creates: "{{ mobsf_opt_path }}/venv/bin/activate"
+
+    - name: setting MobSF aliases
+      vars:
+        vagrant_aliases: ~vagrant/.bash_aliases
+      block:
+
+        - name: ensure file exists
+          copy:
+            content: ""
+            dest: "{{ vagrant_aliases }}"
+            force: no
+            group: vagrant
+            owner: vagrant
+            mode: 0644
+
+        - name: setting MobSF start alias
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-mobsf_start='
+            line: 'alias si-mobsf_start="pushd {{ mobsf_opt_path }}/ && sudo ./run.sh ; popd"'

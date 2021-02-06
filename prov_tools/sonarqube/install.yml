@@ -1,0 +1,171 @@
+---
+- hosts: all
+  become: true
+  vars:
+    sonar_scanner_opt_path: '/opt/sonar-scanner'
+    sonar_scanner_tmp_zip: '/tmp/sonar-scanner.zip'
+  handlers:
+    - name: restart sysctl
+      command: sysctl --system
+
+  tasks:
+
+    - name: sonarqube install prep
+      block:
+
+        - name: installing deps
+          apt:
+            state: present
+            name:
+              - python3-docker
+              - bsdtar
+
+        - name: setting vm.max_map_count
+          sysctl:
+            name: vm.max_map_count
+            value: '262144'
+            state: present
+            sysctl_set: yes
+            reload: yes
+
+        - name: setting fs.file-max
+          sysctl:
+            name: fs.file-max
+            value: '65536'
+            state: present
+            sysctl_set: yes
+            reload: yes
+
+        - name: configure system settings, file descriptors and number of threads
+          pam_limits:
+            domain: '*'
+            limit_type: "{{ item.limit_type }}"
+            limit_item: "{{ item.limit_item }}"
+            value: "{{ item.value }}"
+          loop:
+            - { limit_type: '-', limit_item: 'nofile', value: 65536 }
+            - { limit_type: '-', limit_item: 'nproc', value: 4096 }
+          notify:
+            - restart sysctl
+
+    - name: sonarqube install
+      block:
+
+        - name: pull sonarqube docker image
+          docker_image:
+            source: pull
+            name: sonarqube
+
+    - name: sonar-scanner install
+      block:
+
+        - name: creating sonar-scanner dir
+          file:
+            path: "{{ sonar_scanner_opt_path }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+
+        - name: checking to see if sonar-scanner has been installed
+          stat:
+            path: "{{ sonar_scanner_opt_path }}/bin/sonar-scanner"
+          register: sonar_install_state
+
+        - name: getting most recent release of the scanner
+          shell: curl -sSL "{{ sonar_scanner_version_url }}" | sed -n "{{ sed_pattern }}" | awk -F'["]' '{print $2}' | grep -oP "{{ grep_pattern }}" | tail -n 1
+          register: sonar_scanner_latest
+          vars:
+            - sonar_scanner_version_url: 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/'
+            - sed_pattern: '/href=".*linux.zip"/p'
+            - grep_pattern: '\d+\.\d+\.\d+\.\d+'
+          args:
+            warn: false
+          when: not sonar_install_state.stat.exists
+
+        - name: download sonar-scanner
+          get_url:
+            url: "{{ sonar_scanner_url }}"
+            dest: "{{ sonar_scanner_tmp_zip }}"
+          when: not sonar_install_state.stat.exists
+          vars:
+            - sonar_scanner_url: "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-{{ sonar_scanner_latest.stdout }}-linux.zip"
+
+        - name: unarchive, move, and strip top level folder
+          command: bsdtar -xf "{{ sonar_scanner_tmp_zip }}" --strip-components=1 -C "{{ sonar_scanner_opt_path }}"
+          args:
+            creates: "{{ sonar_scanner_opt_path }}/bin/sonar-scanner"
+
+        - name: removing old zip file
+          file:
+            path: "{{ sonar_scanner_tmp_zip }}"
+            state: absent
+
+        - name: setting files to executable
+          file:
+            path: "{{ item }}"
+            mode: 'a+x'
+            recurse: yes
+          loop:
+            - "{{ sonar_scanner_opt_path }}/bin/"
+            - "{{ sonar_scanner_opt_path }}/jre/bin/"
+
+        - name: adding to path
+          file:
+            src: "{{ item.file_path }}/{{ item.bin_name }}"
+            path: "/usr/local/bin/{{ item.bin_name }}"
+            state: link
+          loop:
+            - { bin_name: 'sonar-scanner', file_path: "{{ sonar_scanner_opt_path }}/bin" }
+            - { bin_name: 'sonar-scanner-debug', file_path: '{{ sonar_scanner_opt_path }}/bin' }
+            - { bin_name: 'java', file_path: '{{ sonar_scanner_opt_path }}/jre/bin' }
+
+        - name: changing sonarqube scanner setting
+          lineinfile:
+            path: "{{ sonar_scanner_opt_path }}/conf/sonar-scanner.properties"
+            regexp: "^#sonar.host.url|^sonar.host.url"
+            line: 'sonar.host.url=http://localhost:9000'
+
+    - name: setting sonarqube aliases
+      vars:
+        vagrant_aliases: ~vagrant/.bash_aliases
+      block:
+
+        - name: ensure file exists
+          copy:
+            content: ""
+            dest: "{{ vagrant_aliases }}"
+            force: no
+            group: vagrant
+            owner: vagrant
+            mode: 0644
+
+        - name: creating and starting sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-sonarqube_create='
+            line: "alias si-sonarqube_create='docker container run -d --name sonarqube -p 9000:9000 sonarqube'"
+
+        - name: monitoring sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-sonarqube_mon='
+            line: "alias si-sonarqube_mon='echo You can do Ctrl+c to stop following the logs && sleep 3 && docker logs -f sonarqube'"
+
+        - name: starting an already created sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-sonarqube_start='
+            line: "alias si-sonarqube_start='docker container start sonarqube || sonarqube_create'"
+
+        - name: stoping sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-sonarqube_stop='
+            line: "alias si-sonarqube_stop='docker container stop sonarqube'"
+
+        - name: delete sonarqube container
+          lineinfile:
+            path: "{{ vagrant_aliases }}"
+            regexp: '^alias si-sonarqube_rm='
+            line: "alias si-sonarqube_rm='docker container rm -f sonarqube'"
