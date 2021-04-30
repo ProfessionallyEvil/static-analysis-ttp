@@ -75,6 +75,8 @@ Vagrant.configure("2") do |config|
   config.vm.provision 'sonarqube', type: 'ansible_local', run: 'never' do |ansible|
     ansible.playbook = 'prov_tools/sonarqube/install.yml'
     ansible.version = 'latest'
+    ansible.pip_install_cmd = "curl -fsSL https://git.io/Jt9mk | sudo bash -xs"
+    ansible.install_mode = 'pip'
     ansible.extra_vars = {
       ansible_python_interpreter: "/usr/bin/env python3"
     }
@@ -83,6 +85,8 @@ Vagrant.configure("2") do |config|
   config.vm.provision 'bandit', type: 'ansible_local', run: 'never' do |ansible|
     ansible.playbook = 'prov_tools/bandit/install.yml'
     ansible.version = 'latest'
+    ansible.pip_install_cmd = "curl -fsSL https://git.io/Jt9mk | sudo bash -xs"
+    ansible.install_mode = 'pip'
     ansible.extra_vars = {
       ansible_python_interpreter: "/usr/bin/env python3"
     }
@@ -92,6 +96,8 @@ Vagrant.configure("2") do |config|
   config.vm.provision 'mobsf', type: 'ansible_local', run: 'never' do |ansible|
     ansible.playbook = 'prov_tools/MobSF/install.yml'
     ansible.version = 'latest'
+    ansible.pip_install_cmd = "curl -fsSL https://git.io/Jt9mk | sudo bash -xs"
+    ansible.install_mode = 'pip'
     ansible.extra_vars = {
       ansible_python_interpreter: "/usr/bin/env python3"
     }
@@ -100,6 +106,8 @@ Vagrant.configure("2") do |config|
   config.vm.provision 'shellcheck', type: 'ansible_local', run: 'never' do |ansible|
     ansible.playbook = 'prov_tools/shellcheck.yml'
     ansible.version = 'latest'
+    ansible.pip_install_cmd = "curl -fsSL https://git.io/Jt9mk | sudo bash -xs"
+    ansible.install_mode = 'pip'
     ansible.extra_vars = {
       ansible_python_interpreter: "/usr/bin/env python3"
     }
