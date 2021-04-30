@@ -98,6 +98,8 @@ Vagrant.configure("2") do |config|
     ansible.version = 'latest'
     ansible.pip_install_cmd = "curl -fsSL https://git.io/Jt9mk | sudo bash -xs"
     ansible.install_mode = 'pip'
+    ansible.galaxy_command = "ansible-galaxy collection install -r %{role_file} --force && ansible-galaxy role install -r %{role_file} --force"
+    ansible.galaxy_role_file = "prov_vagrant/requirements.yml"
     ansible.extra_vars = {
       ansible_python_interpreter: "/usr/bin/env python3"
     }

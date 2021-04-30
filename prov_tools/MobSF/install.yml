@@ -46,8 +46,45 @@
             dest: "{{ mobsf_opt_path }}"
             version: "{{ release_version.tag }}"
 
+        - name: installing pipenv env deps
+          import_role:
+            name: elreydetoda.pipenv.pipenv_init
+          vars:
+            pip_path: '/usr/local/bin/pip3'
+
+        - name: installing pipenv pyenv
+          import_role:
+            name: elreydetoda.pipenv.pyenv
+
+        - name: getting most recent python3.9 version
+          shell: "{{ ansible_user_dir }}/.pyenv/bin/pyenv install --list | grep -oP '3\\.9\\.\\d+' | sort -Vr | head -n1"
+          register: python_version
+          changed_when: False
+
+        - name: installing python version
+          command:
+            cmd: '{{ ansible_user_dir }}/.pyenv/bin/pyenv install {{ python_version.stdout }}'
+            creates: '{{ ansible_user_dir }}/.pyenv/versions/{{ python_version.stdout }}'
+
+        - name: adding Pipfile to repo
+          ansible.builtin.copy:
+            dest: '{{ mobsf_opt_path }}/Pipfile'
+            content: |
+              [[source]]
+              url = "https://pypi.org/simple"
+              verify_ssl = true
+              name = "pypi"
+
+              [packages]
+
+              [dev-packages]
+
+              [requires]
+              python_version = "3.9"
+
+
         - name: Running install script
-          command: ./setup.sh
+          command: pipenv run ./setup.sh
           args:
             chdir: "{{ mobsf_opt_path }}"
             creates: "{{ mobsf_opt_path }}/venv/bin/activate"
@@ -70,4 +107,4 @@
           lineinfile:
             path: "{{ vagrant_aliases }}"
             regexp: '^alias si-mobsf_start='
-            line: 'alias si-mobsf_start="pushd {{ mobsf_opt_path }}/ && sudo ./run.sh ; popd"'
+            line: 'alias si-mobsf_start="sudo -i bash -c \"pushd /opt/MobSF/ && pipenv run ./run.sh\""'

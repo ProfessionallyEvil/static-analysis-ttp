@@ -1,0 +1,8 @@
+# cmd:ansible-galaxy "${ansible_type}" install -r
+# i.e.:ansible-galaxy collection install -r
+# i.e.:ansible-galaxy role install -r
+
+collections:
+  - name: elreydetoda.pipenv
+
+roles:
